@@ -1,0 +1,19 @@
+{
+  "name": "krush-review",
+  "version": "1.0.0",
+  "description": "Krush review bot",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dan VanWinkle <dan.vanwinkle@krush.com>",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.16.1",
+    "express": "^4.14.1",
+    "github": "^8.1.1",
+    "node-rsa": "^0.4.2",
+    "q": "^1.4.1"
+  }
+}
