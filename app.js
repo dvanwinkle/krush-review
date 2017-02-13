@@ -89,7 +89,7 @@ var Webhook = {
       var previousHead = payload.before;
       var newHead = payload.after;
 
-      return PullRequest.getReviews(
+      return PullRequest.getAllReviews(
         repository.owner.login,
         repository.name,
         pullRequest.number
@@ -126,7 +126,7 @@ var Webhook = {
       var repository = payload.repository;
       var pullRequest = payload.pull_request;
 
-      return PullRequest.getReviews(
+      return PullRequest.getAllReviews(
         repository.owner.login,
         repository.name,
         pullRequest.number
@@ -153,7 +153,7 @@ var Webhook = {
 
 var Repository = {
   applyApprovalStatus: (repository, pullRequest) => {
-    return PullRequest.getReviews(
+    return PullRequest.getAllReviews(
       repository.owner.login,
       repository.name,
       pullRequest.number
@@ -191,19 +191,37 @@ var Repository = {
         state: state,
         description: `${approvedCount} (of ${requiredApprovalCount}) approval(s), ${changesRequestedCount} change(s) requested`,
         context: 'krush/review'
+      }).catch((reason) => {
+        console.log(reason);
       });
     });
   }
 };
 
 var PullRequest = {
+  getAllReviews: (owner, repo, number) => {
+    var allReviews = [];
+    var getReviews;
+
+    function pager(response) {
+      allReviews = allReviews.concat(response);
+
+      if (github.hasNextPage(response)) {
+        return github.getNextPage(response, {'Accept': 'application/vnd.github.black-cat-preview+json'}).then(pager);
+      }
+
+      return Q(allReviews);
+    }
+
+    return PullRequest.getReviews(owner, repo, number).then(pager);
+  },
   getReviews: (owner, repo, number) => {
     github.authenticate({
       type: "oauth",
       token: oauthToken
     });
 
-    return github.pullRequests.getReviews({owner, repo, number});
+    return github.pullRequests.getReviews({owner, repo, number, page: undefined, per_page: 100});
   },
   dismissReview: (repository, pullRequest, review, reason) => {
     github.authenticate({
@@ -242,10 +260,9 @@ app.post('/incoming', [verifyIp, parseJsonWithHmac, function (request, response)
       });
       break;
     default:
+      response.sendStatus(200);
       break;
   }
-
-  response.sendStatus(200);
 }]);
 
 app.listen(app.get('port'), function () {
