@@ -5,7 +5,7 @@ var GithubAPI = require('github');
 var crypto = require('crypto');
 var ipFilter = require('express-ipfilter').IpFilter;
 
-var requiredApprovalCount = 2;
+var requiredApprovalCount = parseInt(process.env.REQUIRED_APPROVAL_COUNT);
 
 var github = new GithubAPI({
   debug: false,
@@ -99,7 +99,7 @@ var Webhook = {
           switch (review.state) {
             case "CHANGES_REQUESTED":
             case "APPROVED":
-              promises.push(PullRequest.dismissReview(repository, pullRequest, review));
+              promises.push(PullRequest.dismissReview(repository, pullRequest, review, 'New commit pushed'));
               break;
             default:
               break;
@@ -136,12 +136,14 @@ var Webhook = {
         var promises = [];
 
         for (const review of reviews) {
-          if (review.user.id === submittingUser && review.id !== reviewId) {
-            promises.push(PullRequest.dismissReview(repository, pullRequest, review));
+          if (review.user.id === submittingUser && review.id !== reviewId && (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED')) {
+            promises.push(PullRequest.dismissReview(repository, pullRequest, review, `Superseded by [${submittedReview.id}](${submittedReview.html_url})`));
           }
         }
 
         return Q.all(promises);
+      }).catch((rejectReason) => {
+        console.log(rejectReason);
       }).then(() => {
         return Repository.applyApprovalStatus(repository, pullRequest);
       });
@@ -203,18 +205,20 @@ var PullRequest = {
 
     return github.pullRequests.getReviews({owner, repo, number});
   },
-  dismissReview: (repository, pullRequest, review) => {
+  dismissReview: (repository, pullRequest, review, reason) => {
     github.authenticate({
       type: "oauth",
       token: oauthToken
     });
+
+    if (!reason) { reason = "New commit to PR"; }
 
     return github.pullRequests.dismissReview({
       owner: repository.owner.login,
       repo: repository.name,
       number: pullRequest.number,
       id: review.id,
-      message: "Krush Review Bot dismissing due to new commit to PR"
+      message: `Krush/Review: ${reason}`
     });
   }
 };
