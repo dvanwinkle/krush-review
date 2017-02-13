@@ -46,13 +46,13 @@ app.set('port', (process.env.PORT || 5000));
 
 var ips = [process.env.GITHUB_ALLOWED_IPS];
 
-app.use(ipFilter(ips, {
+var verifyIp = ipFilter(ips, {
   mode: 'allow',
   allowedHeaders: ['x-forwarded-for']
-}));
-app.use(bodyParser.json({
+});
+var parseJsonWithHmac = bodyParser.json({
   verify: verifyHmac
-}));
+});
 app.use(express.static(__dirname + '/public'));
 
 // views is directory for all template files
@@ -122,10 +122,29 @@ var Webhook = {
       }
     },
     processSubmitted: (payload) => {
+      var submittedReview = payload.review;
       var repository = payload.repository;
       var pullRequest = payload.pull_request;
 
-      return Repository.applyApprovalStatus(repository, pullRequest);
+      return PullRequest.getReviews(
+        repository.owner.login,
+        repository.name,
+        pullRequest.number
+      ).then((reviews) => {
+        var submittingUser = submittedReview.user.id;
+        var reviewId = submittedReview.id;
+        var promises = [];
+
+        for (const review of reviews) {
+          if (review.user.id === submittingUser && review.id !== reviewId) {
+            promises.push(PullRequest.dismissReview(repository, pullRequest, review));
+          }
+        }
+
+        return Q.all(promises);
+      }).then(() => {
+        return Repository.applyApprovalStatus(repository, pullRequest);
+      });
     }
   }
 };
@@ -200,7 +219,7 @@ var PullRequest = {
   }
 };
 
-app.post('/incoming', function (request, response) {
+app.post('/incoming', [verifyIp, parseJsonWithHmac, function (request, response) {
   var event = request.get('X-GitHub-Event');
   if (!event) {
     response.sendStatus(500);
@@ -223,7 +242,7 @@ app.post('/incoming', function (request, response) {
   }
 
   response.sendStatus(200);
-});
+}]);
 
 app.listen(app.get('port'), function () {
   console.log('Node app is running on port', app.get('port'));
