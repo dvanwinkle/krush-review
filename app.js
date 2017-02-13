@@ -3,6 +3,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var GithubAPI = require('github');
 var crypto = require('crypto');
+var ipFilter = require('express-ipfilter').IpFilter;
 
 var requiredApprovalCount = 2;
 
@@ -18,7 +19,7 @@ var github = new GithubAPI({
 });
 
 var verifyHmac = (req, res, buf) => {
-  var providedSignature = req.headers['x-hub-signature'];
+  var providedSignature = req.get('X-Hub-Signature');
 
   if (providedSignature) {
     // then calculate HMAC-SHA1 on the content.
@@ -37,13 +38,18 @@ var verifyHmac = (req, res, buf) => {
   }
 };
 
-// Generate a JWT
 var oauthToken = process.env.GITHUB_ACCESS_TOKEN;
 
 var app = express();
 
 app.set('port', (process.env.PORT || 5000));
 
+var ips = [process.env.GITHUB_ALLOWED_IPS];
+
+app.use(ipFilter(ips, {
+  mode: 'allow',
+  allowedHeaders: ['x-forwarded-for']
+}));
 app.use(bodyParser.json({
   verify: verifyHmac
 }));
@@ -91,12 +97,12 @@ var Webhook = {
         var promises = [];
         for (const review of reviews) {
           switch (review.state) {
-          case "CHANGES_REQUESTED":
-          case "APPROVED":
-            promises.push(PullRequest.dismissReview(repository, pullRequest, review));
-            break;
-          default:
-            break;
+            case "CHANGES_REQUESTED":
+            case "APPROVED":
+              promises.push(PullRequest.dismissReview(repository, pullRequest, review));
+              break;
+            default:
+              break;
           }
         }
         return Q.all(promises);
