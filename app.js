@@ -25,14 +25,17 @@ var verifyHmac = (req, res, buf) => {
     // then calculate HMAC-SHA1 on the content.
     var hmac = crypto.createHmac('sha1', process.env.GITHUB_WEBHOOK_SECRET);
     hmac.update(buf);
-    var calculatedSignature = 'sha1=' + hmac.digest(encoding='hex');
+    var calculatedSignature = 'sha1=' + hmac.digest(encoding = 'hex');
 
     if (providedSignature != calculatedSignature) {
       console.log(
         'Wrong signature - providedSignature: %s, calculatedSignature: %s',
         providedSignature,
         calculatedSignature);
-      var error = { status: 400, body: 'Wrong signature' };
+      var error = {
+        status: 400,
+        body: 'Wrong signature'
+      };
       throw error;
     }
   }
@@ -65,10 +68,10 @@ var Webhook = {
       switch (payload.action) {
         case 'opened':
           return Webhook.PullRequest.processOpened(payload);
-        
+
         case 'synchronize':
           return Webhook.PullRequest.processSynchronized(payload);
-        
+
         default:
           return Q(true);
       }
@@ -135,9 +138,11 @@ var Webhook = {
         var reviewId = submittedReview.id;
         var promises = [];
 
-        for (const review of reviews) {
-          if (review.user.id === submittingUser && review.id !== reviewId && (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED')) {
-            promises.push(PullRequest.dismissReview(repository, pullRequest, review, `Superseded by [${submittedReview.id}](${submittedReview.html_url})`));
+        if (submittedReview.state === 'APPROVED' || submittedReview.state === 'CHANGES_REQUESTED') {
+          for (const review of reviews) {
+            if (review.user.id === submittingUser && review.id !== reviewId && (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED')) {
+              promises.push(PullRequest.dismissReview(repository, pullRequest, review, `Superseded by [${submittedReview.id}](${submittedReview.html_url})`));
+            }
           }
         }
 
@@ -207,7 +212,9 @@ var PullRequest = {
       allReviews = allReviews.concat(response);
 
       if (github.hasNextPage(response)) {
-        return github.getNextPage(response, {'Accept': 'application/vnd.github.black-cat-preview+json'}).then(pager);
+        return github.getNextPage(response, {
+          'Accept': 'application/vnd.github.black-cat-preview+json'
+        }).then(pager);
       }
 
       return Q(allReviews);
@@ -221,7 +228,13 @@ var PullRequest = {
       token: oauthToken
     });
 
-    return github.pullRequests.getReviews({owner, repo, number, page: undefined, per_page: 100});
+    return github.pullRequests.getReviews({
+      owner,
+      repo,
+      number,
+      page: undefined,
+      per_page: 100
+    });
   },
   dismissReview: (repository, pullRequest, review, reason) => {
     github.authenticate({
@@ -229,7 +242,9 @@ var PullRequest = {
       token: oauthToken
     });
 
-    if (!reason) { reason = "New commit to PR"; }
+    if (!reason) {
+      reason = "New commit to PR";
+    }
 
     return github.pullRequests.dismissReview({
       owner: repository.owner.login,
