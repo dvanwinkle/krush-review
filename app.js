@@ -138,7 +138,7 @@ var Webhook = {
         var reviewId = submittedReview.id;
         var promises = [];
 
-        if (submittedReview.state === 'APPROVED' || submittedReview.state === 'CHANGES_REQUESTED') {
+        if (submittedReview.state === 'approved' || submittedReview.state === 'changes_requested') {
           for (const review of reviews) {
             if (review.user.id === submittingUser && review.id !== reviewId && (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED')) {
               promises.push(PullRequest.dismissReview(repository, pullRequest, review, `Superseded by [${submittedReview.id}](${submittedReview.html_url})`));
