@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Krush review bot",
   "main": "app.js",
+  "engines": {
+      "node": "6.11.1"
+  },
   "scripts": {
     "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
